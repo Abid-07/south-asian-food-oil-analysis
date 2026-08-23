@@ -21,6 +21,12 @@ import argparse
 import os
 import sys
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed; rely on environment variables
+
 from analyzer import (
     CalorieAnalysis,
     OIL_GRAMS_PER_TBSP,
