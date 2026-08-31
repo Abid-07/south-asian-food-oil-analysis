@@ -1,6 +1,10 @@
 # South Asian Food Oil Analyser
 
-A command-line tool that uses Google Gemini's vision model to estimate the calories and macros of South Asian dishes from a photo, then lets you correct the oil/ghee content and portion weight before getting a final figure.
+A food-photo calorie estimator for South Asian dishes powered by Google Gemini. The repo now includes:
+
+- a **Streamlit app** for Streamlit Community Cloud deployment
+- a **FastAPI app** for the existing web UI
+- a **CLI tool** for local terminal use
 
 ---
 
@@ -55,7 +59,35 @@ A command-line tool that uses Google Gemini's vision model to estimate the calor
 
 ---
 
-## Usage
+## Streamlit app
+
+### Run locally
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Set `GEMINI_API_KEY` in `.env` for local use, or add it to Streamlit secrets when deploying.
+
+### Deploy on Streamlit Community Cloud
+
+Use these settings in Streamlit:
+
+- **Repository:** this GitHub repo
+- **Main file path:** `streamlit_app.py`
+- **Python version:** 3.10+ recommended
+
+Then add this secret in the Streamlit dashboard:
+
+```toml
+GEMINI_API_KEY = "your_key_here"
+```
+
+If you point Streamlit at `app.py`, deployment will fail because that file is a FastAPI app, not a Streamlit entrypoint.
+
+---
+
+## CLI usage
 
 ```bash
 python main.py --image path/to/food_photo.jpg
@@ -109,6 +141,8 @@ A final summary is printed after all adjustments.
 ## Project structure
 
 ```
+streamlit_app.py # Streamlit entry point for Streamlit Cloud
+app.py           # FastAPI entry point for the existing web UI
 main.py          # CLI entry point and interactive flow
 analyzer.py      # Pydantic models, Gemini vision call, adjustment helpers
 requirements.txt
