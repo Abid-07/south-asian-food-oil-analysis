@@ -175,9 +175,15 @@ if st.button("Analyze image", type="primary", use_container_width=True):
     if uploaded_file is None:
         st.error("Please upload an image before running the analysis.")
     else:
-        with st.spinner("Analyzing your food image..."):
-            analysis = analyze_uploaded_image(uploaded_file, model, api_key)
-        save_analysis(analysis)
+        try:
+            with st.spinner("Analyzing your food image..."):
+                analysis = analyze_uploaded_image(uploaded_file, model, api_key)
+        except ClientError as exc:
+            st.error(f"Gemini API error: {exc}")
+        except (OSError, ValueError) as exc:
+            st.error(f"Could not process image: {exc}")
+        else:
+            save_analysis(analysis)
 
 current_analysis = load_analysis(st.session_state.get("current_analysis"))
 if current_analysis is not None:
