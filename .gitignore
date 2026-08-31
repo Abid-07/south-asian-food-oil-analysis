@@ -12,6 +12,11 @@ __pycache__/
 # Environment variables
 .env
 
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
 # OS
 .DS_Store
 Thumbs.db

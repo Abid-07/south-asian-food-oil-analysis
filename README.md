@@ -47,6 +47,12 @@ A command-line tool that uses Google Gemini's vision model to estimate the calor
    ```
    The `.env` file is gitignored — it stays on your machine only. Alternatively, pass your key at runtime with `--api-key` (see below).
 
+   If you use the web app food log, its SQLite database is now stored outside the repo by default, so it does not get pushed to GitHub. You can override the path with:
+   ```
+   FOOD_LOG_DB_PATH=C:\path\to\food_logs.db
+   ```
+   If you set a custom path, keep it outside the repo or make sure the file stays gitignored.
+
 ---
 
 ## Usage
@@ -108,4 +114,3 @@ analyzer.py      # Pydantic models, Gemini vision call, adjustment helpers
 requirements.txt
 .env             # Your API key (not committed)
 ```
-
