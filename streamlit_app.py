@@ -20,11 +20,9 @@ try:
 except ImportError:
     pass
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.6-flash"
 AVAILABLE_MODELS = [
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-mini",
+    "gemini-3.6-flash",
 ]
 MEAL_TYPES = ("breakfast", "lunch", "dinner")
 
