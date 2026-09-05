@@ -4,6 +4,31 @@ from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
 
+DEFAULT_MODEL = "gemini-3.6-flash"
+AVAILABLE_MODELS = [
+    "gemini-3.6-flash",
+    "gemini-3.6-flash-lite",
+    "gemini-3.5-flash",
+]
+
+
+def normalize_model_name(model: str | None) -> str:
+    """Return a valid Gemini model name, falling back to the project default."""
+    candidate = (model or DEFAULT_MODEL).strip()
+    return candidate or DEFAULT_MODEL
+
+
+def resolve_gemini_api_key(explicit_key: str | None = None) -> str:
+    """Return the configured Gemini API key or raise a clear error."""
+    candidate = (explicit_key or os.environ.get("GEMINI_API_KEY") or "").strip()
+    if not candidate:
+        raise ValueError(
+            "No Gemini API key found. Set GEMINI_API_KEY or pass a key explicitly."
+        )
+    os.environ["GEMINI_API_KEY"] = candidate
+    return candidate
+
+
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------

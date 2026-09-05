@@ -1,7 +1,4 @@
-"""
-South Asian Food Oil Analyser – Web UI
-Run with: uvicorn app:app --reload
-"""
+"""FastAPI app for the South Asian Food Oil Analyser UI."""
 
 import asyncio
 import json
@@ -26,13 +23,14 @@ except ImportError:
     pass
 
 from analyzer import (
+    DEFAULT_MODEL,
     CalorieAnalysis,
     adjust_dish_weight,
     adjust_oil_calories,
     analyze_food_image,
+    normalize_model_name,
+    resolve_gemini_api_key,
 )
-
-DEFAULT_MODEL = "gemini-3.6-flash"
 
 
 def resolve_db_path() -> Path:
@@ -76,50 +74,23 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="South Asian Food Oil Analyser", lifespan=lifespan)
 
 
-@app.get("/")
-async def index():
-    return FileResponse("templates/index.html", media_type="text/html")
-
-
-# ---------------------------------------------------------------------------
-# Analysis
-# ---------------------------------------------------------------------------
-
-
-@app.post("/api/analyze")
-async def analyze_endpoint(
-    image: UploadFile = File(...),
-    model: str = Form(DEFAULT_MODEL),
-):
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=500, detail="GEMINI_API_KEY is not configured on the server."
-        )
-
-    model_name = (model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
-    contents = await image.read()
-    if not contents:
-        raise HTTPException(status_code=400, detail="No image content received.")
+async def analyze_uploaded_bytes(image_bytes: bytes, model_name: str, api_key: str) -> dict:
     tmp_path = Path(f"_tmp_{uuid.uuid4().hex}.jpg")
     try:
-        img = Image.open(BytesIO(contents)).convert("RGB")
+        img = Image.open(BytesIO(image_bytes)).convert("RGB")
         img.save(tmp_path, format="JPEG")
 
-        def _run_analysis(selected_model: str) -> dict:
-            result = analyze_food_image(
-                str(tmp_path), model=selected_model, api_key=api_key
-            )
-            return result.model_dump()
+        def run_analysis(selected_model: str) -> dict:
+            return analyze_food_image(str(tmp_path), model=selected_model, api_key=api_key).model_dump()
 
         try:
-            return await asyncio.to_thread(_run_analysis, model_name)
+            return await asyncio.to_thread(run_analysis, model_name)
         except ClientError as exc:
             if (
                 model_name != DEFAULT_MODEL
                 and "no longer available to new users" in str(exc).lower()
             ):
-                return await asyncio.to_thread(_run_analysis, DEFAULT_MODEL)
+                return await asyncio.to_thread(run_analysis, DEFAULT_MODEL)
             raise HTTPException(
                 status_code=502,
                 detail=f"Vision API error for model '{model_name}': {exc}",
@@ -129,15 +100,32 @@ async def analyze_endpoint(
             tmp_path.unlink()
 
 
-# ---------------------------------------------------------------------------
-# Adjustments
-# ---------------------------------------------------------------------------
+@app.get("/")
+async def index():
+    return FileResponse("templates/index.html", media_type="text/html")
+
+
+@app.post("/api/analyze")
+async def analyze_endpoint(
+    image: UploadFile = File(...),
+    model: str = Form(DEFAULT_MODEL),
+):
+    try:
+        api_key = resolve_gemini_api_key()
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    contents = await image.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="No image content received.")
+
+    return await analyze_uploaded_bytes(contents, normalize_model_name(model or DEFAULT_MODEL), api_key)
 
 
 class OilAdjustRequest(BaseModel):
     analysis: dict
     oil_amount: float
-    oil_unit: str  # "grams" | "tsp" | "tbsp"
+    oil_unit: str
 
 
 class WeightAdjustRequest(BaseModel):
@@ -148,25 +136,18 @@ class WeightAdjustRequest(BaseModel):
 @app.post("/api/adjust/oil")
 async def adjust_oil_endpoint(req: OilAdjustRequest):
     analysis = CalorieAnalysis.model_validate(req.analysis)
-    updated = adjust_oil_calories(analysis, req.oil_amount, req.oil_unit)
-    return updated.model_dump()
+    return adjust_oil_calories(analysis, req.oil_amount, req.oil_unit).model_dump()
 
 
 @app.post("/api/adjust/weight")
 async def adjust_weight_endpoint(req: WeightAdjustRequest):
     analysis = CalorieAnalysis.model_validate(req.analysis)
-    updated = adjust_dish_weight(analysis, req.new_weight)
-    return updated.model_dump()
-
-
-# ---------------------------------------------------------------------------
-# Food logs
-# ---------------------------------------------------------------------------
+    return adjust_dish_weight(analysis, req.new_weight).model_dump()
 
 
 class LogEntry(BaseModel):
-    date: str       # "YYYY-MM-DD"
-    meal_type: str  # "breakfast" | "lunch" | "dinner"
+    date: str
+    meal_type: str
     analysis: dict
 
 
@@ -192,12 +173,12 @@ async def get_logs(log_date: str):
         ).fetchall()
     return [
         {
-            "id": r["id"],
-            "date": r["date"],
-            "meal_type": r["meal_type"],
-            "analysis": json.loads(r["analysis"]),
+            "id": row["id"],
+            "date": row["date"],
+            "meal_type": row["meal_type"],
+            "analysis": json.loads(row["analysis"]),
         }
-        for r in rows
+        for row in rows
     ]
 
 
